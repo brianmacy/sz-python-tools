@@ -18,8 +18,8 @@ from contextlib import suppress
 from datetime import datetime
 from queue import Empty, Full
 
-from _sz_database import SzDatabase
-from _tool_helpers import get_engine_config
+from ._sz_database import SzDatabase
+from ._tool_helpers import get_engine_config
 from senzing import SzEngineFlags, SzError
 from senzing_core import SzAbstractFactoryCore
 

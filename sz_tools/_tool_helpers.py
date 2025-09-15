@@ -110,6 +110,7 @@ class Colors:
             cls.DISCLOSED = cls.SZ_PURPLE
             cls.JSONKEYCOLOR = cls.SZ_BLUE
             cls.JSONVALUECOLOR = cls.SZ_YELLOW
+            cls.VALUE_COLOR = cls.SZ_YELLOW
         elif theme == "LIGHT":
             cls.TABLE_TITLE = cls.FG_LIGHTBLACK
             cls.ROW_TITLE = cls.FG_LIGHTBLACK
@@ -129,6 +130,7 @@ class Colors:
             cls.DISCLOSED = cls.FG_LIGHTMAGENTA
             cls.JSONKEYCOLOR = cls.FG_LIGHTBLUE
             cls.JSONVALUECOLOR = cls.FG_LIGHTYELLOW
+            cls.VALUE_COLOR = cls.FG_LIGHTYELLOW
         elif theme == "DARK":
             cls.TABLE_TITLE = cls.FG_BLACK
             cls.ROW_TITLE = cls.FG_BLACK
@@ -149,6 +151,7 @@ class Colors:
             cls.DISCLOSED = cls.FG_MAGENTA
             cls.JSONKEYCOLOR = cls.SZ_BLUE
             cls.JSONVALUECOLOR = cls.SZ_YELLOW
+            cls.VALUE_COLOR = cls.SZ_YELLOW
         # This class is mostly for sz_explorer as it has many color requirements
         # Other tools need to do basic coloring of text, setting this theme uses
         # the colors set by the terminal preferences so a user will see the colors
@@ -726,8 +729,16 @@ def do_history() -> None:
     print()
 
 
-def history_setup(module_name: str) -> Union[None, Path]:
-    """Attempt to setup history file"""
+def history_setup(module_name: str, max_history: int = 1000) -> Union[None, Path]:
+    """Attempt to setup history file with size limit.
+
+    Args:
+        module_name: Name of the module for history file naming
+        max_history: Maximum number of history entries to keep (default: 1000)
+
+    Returns:
+        Path to history file if successful, None otherwise
+    """
     history_file: Union[None, Path] = None
     history_files = [Path(f"~/.{module_name}_history").expanduser(), Path(f"/tmp/.{module_name}_history")]
     history_errors = []
@@ -750,7 +761,29 @@ def history_setup(module_name: str) -> Union[None, Path]:
     if len(history_errors) < len(history_files):
         # Read the history file and setup exit handlers to write on exit
         readline.read_history_file(history_file)
-        atexit.register(history_write_file, history_file)
+
+        # Apply filtering and size limit
+        history_length = readline.get_current_history_length()
+        all_history = []
+        for i in range(1, history_length + 1):
+            item = readline.get_history_item(i)
+            if item and _should_keep_history_item(item):
+                all_history.append(item)
+
+        # Deduplicate keeping most recent instances
+        filtered_history = _deduplicate_history(all_history)
+
+        # Apply size limit
+        if len(filtered_history) > max_history:
+            filtered_history = filtered_history[-max_history:]
+
+        # Clear current history and reload with filtered entries
+        if filtered_history:
+            readline.clear_history()
+            for item in filtered_history:
+                readline.add_history(item)
+
+        atexit.register(history_write_file, history_file, max_history)
 
     # If no files succeeded show errors
     if len(history_errors) == len(history_files):
@@ -763,7 +796,111 @@ def history_setup(module_name: str) -> Union[None, Path]:
     return history_file
 
 
-def history_write_file(file: Path) -> None:
+def _should_keep_history_item(item: str) -> bool:
+    """Determine if a history item should be kept.
+
+    Filters out: quit, help, responses to questions (y/n), invalid commands
+
+    Args:
+        item: History item to check
+
+    Returns:
+        True if item should be kept, False otherwise
+    """
+    if not item or not item.strip():
+        return False
+
+    item_clean = item.strip().lower()
+
+    # Filter out quit commands
+    if item_clean in ("quit", "exit", "q"):
+        return False
+
+    # Filter out help commands
+    if item_clean.startswith("help") or item_clean == "h":
+        return False
+
+    # Filter out simple y/n responses
+    if item_clean in ("y", "yes", "n", "no"):
+        return False
+
+    # Filter out common invalid command patterns
+    # Commands that start with invalid characters or are clearly errors
+    if (
+        item_clean.startswith(
+            ("***", "error", "unknown", "invalid", "command not found", "no such", "bash:", "sh:", "-bash:", "zsh:")
+        )
+        or "*** Unknown syntax:" in item
+        or "command not found" in item
+        or item_clean.startswith("?")
+    ):
+        return False
+
+    # Filter out shell commands that might have been entered by mistake
+    # but allow legitimate commands that might start with these
+    shell_prefixes = ["ls ", "cd ", "pwd", "cat ", "grep ", "find ", "ps ", "top", "htop"]
+    if any(item_clean.startswith(prefix) for prefix in shell_prefixes):
+        return False
+
+    # Filter out very short commands that are likely typos (1-2 chars except valid ones)
+    valid_short_commands = {"q", "h"}
+    if len(item_clean) <= 2 and item_clean not in valid_short_commands:
+        # But keep commands that might be valid abbreviations or contain arguments
+        if " " not in item_clean:  # No arguments, likely a typo
+            return False
+
+    return True
+
+
+def _deduplicate_history(history_items: list) -> list:
+    """Deduplicate history keeping only the most recent instance.
+
+    Args:
+        history_items: List of history items
+
+    Returns:
+        Deduplicated list with most recent instances
+    """
+    seen = {}
+    result = []
+
+    # Process in reverse to keep most recent
+    for i, item in enumerate(reversed(history_items)):
+        if item not in seen:
+            seen[item] = True
+            result.append(item)
+
+    # Return in correct order
+    return list(reversed(result))
+
+
+def history_write_file(file: Path, max_history: int = 1000) -> None:
+    """Write history file with size limit and filtering.
+
+    Args:
+        file: Path to history file
+        max_history: Maximum number of history entries to keep
+    """
+    # Collect all history items
+    history_length = readline.get_current_history_length()
+    all_history = []
+    for i in range(1, history_length + 1):
+        item = readline.get_history_item(i)
+        if item and _should_keep_history_item(item):
+            all_history.append(item)
+
+    # Deduplicate keeping most recent instances
+    filtered_history = _deduplicate_history(all_history)
+
+    # Apply size limit
+    if len(filtered_history) > max_history:
+        filtered_history = filtered_history[-max_history:]
+
+    # Clear current history and reload with filtered entries
+    readline.clear_history()
+    for item in filtered_history:
+        readline.add_history(item)
+
     readline.write_history_file(file)
 
 

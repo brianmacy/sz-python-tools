@@ -12,7 +12,10 @@ import sys
 import textwrap
 import traceback
 
-from _tool_helpers import Colors, colorize_cmd_prompt, get_engine_config
+try:
+    from ._tool_helpers import Colors, colorize_cmd_prompt, get_engine_config
+except ImportError:
+    from _tool_helpers import Colors, colorize_cmd_prompt, get_engine_config
 
 try:
     import prettytable

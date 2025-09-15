@@ -12,7 +12,7 @@ import time
 from contextlib import suppress
 from typing import Any, Dict, List, Union
 
-from _tool_helpers import get_engine_config, print_error
+from ._tool_helpers import get_engine_config, print_error
 from senzing import SzError
 from senzing_core import SzAbstractFactoryCore
 

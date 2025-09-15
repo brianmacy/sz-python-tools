@@ -17,8 +17,8 @@ import traceback
 from contextlib import suppress
 from typing import Any, Dict, List, Union
 
-from _sz_database import SzDatabase
-from _tool_helpers import (
+from ._sz_database import SzDatabase
+from ._tool_helpers import (
     Colors,
     colorize_cmd_prompt,
     combine_engine_flags,

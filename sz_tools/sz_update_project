@@ -9,7 +9,7 @@ from pathlib import Path
 from time import sleep
 from typing import Any
 
-from _project_helpers import (
+from ._project_helpers import (
     PERMISSIONS,
     PERMISSIONS_2,
     SZ_SYS_PATH,

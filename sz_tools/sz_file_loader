@@ -19,7 +19,7 @@ from threading import Event
 from types import FrameType
 from typing import Any, Iterable, List, TextIO, Tuple, TypeVar, Union
 
-from _tool_helpers import (
+from ._tool_helpers import (
     check_file_exists,
     check_path_writeable,
     get_char_with_timeout,

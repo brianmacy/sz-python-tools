@@ -5,7 +5,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from _project_helpers import (
+from ._project_helpers import (
     COPY_TO_PROJ,
     PERMISSIONS,
     PERMISSIONS_2,
